@@ -1,7 +1,5 @@
 package edu.hebrew.db.external;
 
-import jdk.internal.util.xml.impl.Pair;
-
 import java.io.*;
 import java.util.*;
 import java.io.BufferedWriter;
@@ -32,11 +30,14 @@ public class ExternalMemoryImpl implements IExternalMemory {
 	}
 
 
+	private PriorityQueue<Entry> minHeap = new PriorityQueue<>();
+
 	private int[] sps;
 	private int readChunks = 0;
 	private int lineInBytes = 0;
 
 	private ArrayList<Integer> tmpFiles = new ArrayList<>();
+	private ArrayList<Integer> secondTmpFiles = new ArrayList<>();
 	private ArrayList<BufferedReader> readers = new ArrayList<>();
 
 	private static final int blocksNum = 1000;
@@ -126,38 +127,50 @@ public class ExternalMemoryImpl implements IExternalMemory {
 		FileOutputStream fos = new FileOutputStream(fout);
 		writer = new BufferedWriter(new OutputStreamWriter(fos));
 
+		Entry min;
 		makeReaders(tmpPath);
-
-		String[] rows = new String[this.blocksNum - 1];
+		String newLine;
 
 		// How many rows in M - 1 Blocks from each M - 1 files
 		int read = (int) Math.floor(this.bytesInBlock / this.lineInBytes);
 
 		// iterate over all files and take min
 		BufferedReader reader;
-		while (this.readers.size() > 0) {
 
-			reader = this.readers.get(0);
+		int iteration = Math.min(this.readChunks, this.tmpFiles.size());
 
-			int iteration = Math.min((this.blocksNum - 1), this.tmpFiles.size());
-			for (int i = 0; i < Math.min((this.blocksNum - 1), this.tmpFiles.size()); i++) {
-				reader = this.readers.get(i);
-				rows[i] = reader.readLine();
-			}
+		// add first row to minHeap from every file we can fit to M
+		for (int i = 0; i < iteration; i++) {
+			reader = this.readers.get(i);
+			minHeap.add(new Entry(reader.readLine(), i));
+		}
 
-			// if cur <= line then the min = cur
-			String[] min = getMin(rows, colNum);
+		// while we still have lines in the chosen files
+		while (	(min = minHeap.poll()) != null) {
 
-			// create new file
-			writer.write(min[0]);
+			// write min line
+			writer.write(min.line);
 			writer.newLine();
 
 			// advance reader with min value and get next line
-			int minIndex = Integer.parseInt(min[1]);
-			rows[minIndex] = this.readers.get(minIndex).readLine();
+			newLine = this.readers.get(min.index).readLine();
 
+			if (newLine != null) {
+				minHeap.add(new Entry(newLine, min.index));
+			}
 		}
 
+		// delete iteration files
+		for (int i = 0; i < iteration; i++) {
+			File readFile;
+
+			// override the prev file
+			readFile = new File (tmpPath + String.valueOf(this.tmpFiles.get(i)) + ".txt");
+			readFile.delete();
+		}
+
+		// add the merged file to tmp files
+		this.secondTmpFiles.add(this.counter);
 	}
 
 	@Override
@@ -169,15 +182,15 @@ public class ExternalMemoryImpl implements IExternalMemory {
 			String tmps = tmpPath + "tmp";
 
 			this.lineInBytes = reader.readLine().length() * 2;
-			this.readChunks = (int) Math.ceil((bytesInBlock * blocksNum) / (this.lineInBytes)); // lines can go into RAM
+			this.readChunks = (int) Math.floor((bytesInBlock * blocksNum) / (this.lineInBytes)); // lines can go into M
 
 			reader = new BufferedReader(new FileReader(file));
 			firstStage(reader, tmps, colNum, (file.length() * 2) / this.lineInBytes);
 
-			// Loop log on M - 1 of block after first stage
+			// Loop until there is tmp files to merge
 			int iteration = this.tmpFiles.size();
-			for (int i = 0; i < Math.ceil(Math.log(iteration) / Math.log(this.blocksNum - 1)); i++) {
-				secondStage(tmpPath,);
+			while ((this.tmpFiles.size() > 0) || (this.secondTmpFiles.size() > 0)){
+				secondStage(tmpPath, );
 			}
 			//reader = new BufferedReader(new FileReader(fout));
 			//secondStage(tmpPath, reader, writer, colNum);
