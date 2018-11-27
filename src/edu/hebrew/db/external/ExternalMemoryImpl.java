@@ -5,7 +5,6 @@ import java.util.*;
 import java.io.BufferedWriter;
 import java.io.FileReader;
 import java.io.BufferedReader;
-import java.util.Comparator;
 
 public class ExternalMemoryImpl implements IExternalMemory {
 
@@ -30,6 +29,7 @@ public class ExternalMemoryImpl implements IExternalMemory {
 	}
 
 
+	//** class vars **//
 	private PriorityQueue<Entry> minHeap = new PriorityQueue<>();
 
 	private int readChunks = 0;
@@ -44,6 +44,8 @@ public class ExternalMemoryImpl implements IExternalMemory {
 	private static final int bytesInBlock = 20000;
 	private int counter = 1;  // for new tmp files
 
+
+	// ** CODE **//
 	private String getField(String line, int colNum){
 		return line.split(" ")[colNum - 1];
 	}
@@ -55,7 +57,7 @@ public class ExternalMemoryImpl implements IExternalMemory {
 		BufferedWriter writer;
 
 		int iterations = (int) Math.ceil((double)linesNum / this.readChunks);
-		for (int i = 0; i < iterations; i++) {
+		for (int i = 1; i < iterations; i++) {
 
 			// create new file
 			fout = new File(tmpPath + String.valueOf(counter) + ".txt");
@@ -169,6 +171,9 @@ public class ExternalMemoryImpl implements IExternalMemory {
 
 	@Override
 	public void sort(String in, String out, int colNum, String tmpPath) {
+		// time checking
+		long startTime = System.nanoTime();
+
 		try {
 			File file = new File(in);
 			BufferedReader reader = new BufferedReader(new FileReader(file));
@@ -185,12 +190,10 @@ public class ExternalMemoryImpl implements IExternalMemory {
 			firstStage(reader, tmps, colNum, (file.length() * 2) / this.lineInBytes);
 
 			// Loop until there is tmp files to merge
-			int iteration = this.tmpFiles.size();
 			while (this.tmpFiles.size() > 1) {
 				secondStage(tmps, colNum);
 			}
 			new File(tmps + String.valueOf(counter) + ".txt").renameTo(new File(out));
-
 
 			reader.close();
 		}
@@ -199,23 +202,74 @@ public class ExternalMemoryImpl implements IExternalMemory {
 			e.printStackTrace();
 		}
 
-
-
-
-
-		// TODO: Implement
+		// time checking
+		long endTime   = System.nanoTime();
+		long totalTime = endTime - startTime;
+		System.out.println(totalTime / 1000000000);
 	}
 
 	@Override
 	public void select(String in, String out, int colNumSelect,
 			String substrSelect, String tmpPath) {
-		// TODO: Implement
+
+		try {
+			File file = new File(in);
+			BufferedReader reader = new BufferedReader(new FileReader(file));
+
+			File fout = new File(out);
+			FileOutputStream fos = new FileOutputStream(fout);
+			BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(fos));
+
+			String line, col;
+			while ((line = reader.readLine()) != null){
+				col = getField(line, colNumSelect);
+				if (col.contains(substrSelect)){
+					writer.write(line);
+					writer.newLine();
+				}
+			}
+
+			writer.close();
+			reader.close();
+		}
+
+		catch(Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
 	public void sortAndSelectEfficiently(String in, String out, int colNumSort,
 			String tmpPath, int colNumSelect, String substrSelect) {
-		// TODO: Implement
+
+		try {
+			File file = new File(in);
+			BufferedReader reader = new BufferedReader(new FileReader(file));
+
+			File fout = new File(tmpPath + "filtered.txt");
+			FileOutputStream fos = new FileOutputStream(fout);
+			BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(fos));
+
+			// first filter
+			String line, col;
+			while ((line = reader.readLine()) != null){
+				col = getField(line, colNumSelect);
+				if (col.contains(substrSelect)){
+					writer.write(line);
+					writer.newLine();
+				}
+			}
+
+			// now sort the filtered file
+			sort(tmpPath + "filtered.txt", out, colNumSort, tmpPath);
+
+			writer.close();
+			reader.close();
+		}
+
+		catch(Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 }
