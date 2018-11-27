@@ -79,25 +79,18 @@ public class ExternalMemoryImpl implements IExternalMemory {
 
 					if (this.inPartC){
 						col = getField(line, this.colWithSub);
-						if (col.contains(this.subString)){
+						if (!col.contains(this.subString)){
+							continue;
+						}
+					}
 
-							if (map.containsKey(getField(line, colNum))) {
-								String key = getField(line, colNum);
-								map.put(key, map.get(key) + System.lineSeparator() + line);
-							}
-							else{
-								map.put(getField(line, colNum), line);
-							}
-						}
+					if (map.containsKey(getField(line, colNum))) {
+						String key = getField(line, colNum);
+						map.put(key, map.get(key) + System.lineSeparator() + line);
+					} else {
+						map.put(getField(line, colNum), line);
 					}
-					else {
-						if (map.containsKey(getField(line, colNum))) {
-							String key = getField(line, colNum);
-							map.put(key, map.get(key) + System.lineSeparator() + line);
-						} else {
-							map.put(getField(line, colNum), line);
-						}
-					}
+
 				}
 				else {
 					break;
