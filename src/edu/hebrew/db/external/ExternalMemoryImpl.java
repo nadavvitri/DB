@@ -9,10 +9,10 @@ import java.util.Comparator;
 
 public class ExternalMemoryImpl implements IExternalMemory {
 
+	//** minHeap **//
 	public class Entry implements Comparable<Entry> {
 		private String line;
 		private int index;
-		private int colNum;
 
 		public Entry(String line, int index) {
 			this.line = line;
@@ -32,9 +32,9 @@ public class ExternalMemoryImpl implements IExternalMemory {
 
 	private PriorityQueue<Entry> minHeap = new PriorityQueue<>();
 
-	private int[] sps;
 	private int readChunks = 0;
 	private int lineInBytes = 0;
+	private int colNum = 0;
 
 	private ArrayList<Integer> tmpFiles = new ArrayList<>();
 	private ArrayList<Integer> secondTmpFiles = new ArrayList<>();
@@ -42,7 +42,7 @@ public class ExternalMemoryImpl implements IExternalMemory {
 
 	private static final int blocksNum = 1000;
 	private static final int bytesInBlock = 20000;
-	private int counter = 1;
+	private int counter = 1;  // for new tmp files
 
 	private String getField(String line, int colNum){
 		return line.split(" ")[colNum - 1];
@@ -50,13 +50,18 @@ public class ExternalMemoryImpl implements IExternalMemory {
 
 	private void firstStage(BufferedReader reader, String tmpPath, int colNum, long linesNum) throws Exception{
 
-		File fout = new File(tmpPath + String.valueOf(counter) + ".txt");
-		FileOutputStream fos = new FileOutputStream(fout);
-		BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(fos));
+		File fout;
+		FileOutputStream fos;
+		BufferedWriter writer;
 
 		int iterations = (int) Math.ceil((double)linesNum / this.readChunks);
-		this.sps = new int[iterations];
 		for (int i = 0; i < iterations; i++) {
+
+			// create new file
+			fout = new File(tmpPath + String.valueOf(counter) + ".txt");
+			fos = new FileOutputStream(fout);
+			writer = new BufferedWriter(new OutputStreamWriter(fos));
+
 			Map<String, String> map = new TreeMap<String, String>();
 
 			// Read chunk of lines from file to hash table
@@ -87,12 +92,9 @@ public class ExternalMemoryImpl implements IExternalMemory {
 
 			// create new file
 			this.counter++;
-			fout = new File(tmpPath + String.valueOf(counter) + ".txt");
-			fos = new FileOutputStream(fout);
-			writer = new BufferedWriter(new OutputStreamWriter(fos));
-		}
+			writer.close();
 
-		writer.close();
+		}
 	}
 
 	private void makeReaders(String tmpPath) throws Exception{
@@ -105,34 +107,16 @@ public class ExternalMemoryImpl implements IExternalMemory {
 		}
 	}
 
-	private String[] getMin(String[] rows, int colNum){
-		String min = rows[0];
-		Integer minIndex = 0;
 
-		for (int i = 1; i < rows.length; i++) {
-			// if cur <= line then the min = cur
-			if (getField(rows[i], colNum).compareTo(getField(min, colNum)) <= 0) {
-				min = rows[i];
-				minIndex = i;
-			}
-		}
-
-		return new String[]{min, String.valueOf(minIndex)};
-	}
-
-
-	private void secondStage(String tmpPath, BufferedWriter writer, int colNum) throws Exception {
+	private void secondStage(String tmpPath, int colNum) throws Exception {
 
 		File fout = new File(tmpPath + String.valueOf(counter) + ".txt");
 		FileOutputStream fos = new FileOutputStream(fout);
-		writer = new BufferedWriter(new OutputStreamWriter(fos));
+		BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(fos));
 
 		Entry min;
 		makeReaders(tmpPath);
 		String newLine;
-
-		// How many rows in M - 1 Blocks from each M - 1 files
-		int read = (int) Math.floor(this.bytesInBlock / this.lineInBytes);
 
 		// iterate over all files and take min
 		BufferedReader reader;
@@ -165,12 +149,22 @@ public class ExternalMemoryImpl implements IExternalMemory {
 			File readFile;
 
 			// override the prev file
-			readFile = new File (tmpPath + String.valueOf(this.tmpFiles.get(i)) + ".txt");
+			readFile = new File (tmpPath + String.valueOf(this.tmpFiles.get(0)) + ".txt");
 			readFile.delete();
+
+			// remove from tmpfiles
+			this.tmpFiles.remove(0);
 		}
 
 		// add the merged file to tmp files
 		this.secondTmpFiles.add(this.counter);
+		writer.close();
+
+		// if we iterate over all prev tmp files then update the new files as temps
+		if (this.tmpFiles.size() <= 0){
+			this.tmpFiles = this.secondTmpFiles;
+			this.secondTmpFiles.clear();
+		}
 	}
 
 	@Override
@@ -180,20 +174,25 @@ public class ExternalMemoryImpl implements IExternalMemory {
 			BufferedReader reader = new BufferedReader(new FileReader(file));
 
 			String tmps = tmpPath + "tmp";
+			this.colNum = colNum;
 
 			this.lineInBytes = reader.readLine().length() * 2;
-			this.readChunks = (int) Math.floor((bytesInBlock * blocksNum) / (this.lineInBytes)); // lines can go into M
+
+			// lines can go into M
+			this.readChunks = (int) Math.floor((bytesInBlock * blocksNum) / (this.lineInBytes));
 
 			reader = new BufferedReader(new FileReader(file));
 			firstStage(reader, tmps, colNum, (file.length() * 2) / this.lineInBytes);
 
 			// Loop until there is tmp files to merge
 			int iteration = this.tmpFiles.size();
-			while ((this.tmpFiles.size() > 0) || (this.secondTmpFiles.size() > 0)){
-				secondStage(tmpPath, );
+			while (this.tmpFiles.size() > 1) {
+				secondStage(tmps, colNum);
 			}
-			//reader = new BufferedReader(new FileReader(fout));
-			//secondStage(tmpPath, reader, writer, colNum);
+			new File(tmps + String.valueOf(counter) + ".txt").renameTo(new File(out));
+
+
+			reader.close();
 		}
 
 		catch(Exception e) {
