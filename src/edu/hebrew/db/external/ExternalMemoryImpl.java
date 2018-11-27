@@ -44,6 +44,11 @@ public class ExternalMemoryImpl implements IExternalMemory {
 	private static final int bytesInBlock = 20000;
 	private int counter = 1;  // for new tmp files
 
+	// for first stage in part C
+	private boolean inPartC = false;
+	private String subString;
+	private int colWithSub;
+
 
 	// ** CODE **//
 	private String getField(String line, int colNum){
@@ -55,9 +60,10 @@ public class ExternalMemoryImpl implements IExternalMemory {
 		File fout;
 		FileOutputStream fos;
 		BufferedWriter writer;
+		String col;
 
 		int iterations = (int) Math.ceil((double)linesNum / this.readChunks);
-		for (int i = 1; i < iterations; i++) {
+		for (int i = 0; i < iterations; i++) {
 
 			// create new file
 			fout = new File(tmpPath + String.valueOf(counter) + ".txt");
@@ -70,12 +76,27 @@ public class ExternalMemoryImpl implements IExternalMemory {
 			for (int row = 0; row < this.readChunks; row++) {
 				String line = "";
 				if ((line = reader.readLine()) != null) {
-					if (map.containsKey(getField(line, colNum))) {
-						String key = getField(line, colNum);
-						map.put(key, map.get(key) + System.lineSeparator() + line);
+
+					if (this.inPartC){
+						col = getField(line, this.colWithSub);
+						if (col.contains(this.subString)){
+
+							if (map.containsKey(getField(line, colNum))) {
+								String key = getField(line, colNum);
+								map.put(key, map.get(key) + System.lineSeparator() + line);
+							}
+							else{
+								map.put(getField(line, colNum), line);
+							}
+						}
 					}
-					else{
-						map.put(getField(line, colNum), line);
+					else {
+						if (map.containsKey(getField(line, colNum))) {
+							String key = getField(line, colNum);
+							map.put(key, map.get(key) + System.lineSeparator() + line);
+						} else {
+							map.put(getField(line, colNum), line);
+						}
 					}
 				}
 				else {
@@ -181,16 +202,20 @@ public class ExternalMemoryImpl implements IExternalMemory {
 			String tmps = tmpPath + "tmp";
 			this.colNum = colNum;
 
-			this.lineInBytes = reader.readLine().length() * 2;
+			this.lineInBytes = reader.readLine().length(); // without \n
 
 			// lines can go into M
-			this.readChunks = (int) Math.floor((bytesInBlock * blocksNum) / (this.lineInBytes));
+			this.readChunks = (int) Math.floor((bytesInBlock * blocksNum) / (this.lineInBytes + 1));
+			long linesNum = ((file.length() - lineInBytes) / (this.lineInBytes + 1)) + 1;
 
 			reader = new BufferedReader(new FileReader(file));
-			firstStage(reader, tmps, colNum, (file.length() * 2) / this.lineInBytes);
+			firstStage(reader, tmps, colNum, linesNum);
 
+			if (this.tmpFiles.size() == 1){
+				this.counter--;
+			}
 			// Loop until there is tmp files to merge
-			while (this.tmpFiles.size() > 1) {
+			while (this.tmpFiles.size() > 1 || this.secondTmpFiles.size() > 0) {
 				secondStage(tmps, colNum);
 			}
 			new File(tmps + String.valueOf(counter) + ".txt").renameTo(new File(out));
@@ -243,28 +268,11 @@ public class ExternalMemoryImpl implements IExternalMemory {
 			String tmpPath, int colNumSelect, String substrSelect) {
 
 		try {
-			File file = new File(in);
-			BufferedReader reader = new BufferedReader(new FileReader(file));
+			this.inPartC = true;
+			this.subString = substrSelect;
+			this.colWithSub = colNumSelect;
 
-			File fout = new File(tmpPath + "filtered.txt");
-			FileOutputStream fos = new FileOutputStream(fout);
-			BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(fos));
-
-			// first filter
-			String line, col;
-			while ((line = reader.readLine()) != null){
-				col = getField(line, colNumSelect);
-				if (col.contains(substrSelect)){
-					writer.write(line);
-					writer.newLine();
-				}
-			}
-
-			// now sort the filtered file
-			sort(tmpPath + "filtered.txt", out, colNumSort, tmpPath);
-
-			writer.close();
-			reader.close();
+			sort(in, out, colNumSort, tmpPath);
 		}
 
 		catch(Exception e) {
