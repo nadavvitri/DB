@@ -132,7 +132,7 @@ public class ExternalMemoryImpl implements IExternalMemory {
 
 		Entry min;
 		makeReaders(tmpPath);
-		String newLine;
+		String line;
 
 		// iterate over all files and take min
 		BufferedReader reader;
@@ -142,7 +142,10 @@ public class ExternalMemoryImpl implements IExternalMemory {
 		// add first row to minHeap from every file we can fit to M
 		for (int i = 0; i < iteration; i++) {
 			reader = this.readers.get(i);
-			minHeap.add(new Entry(reader.readLine(), i));
+
+			if ((line = reader.readLine()) != null) {
+				minHeap.add(new Entry(line, i));
+			}
 		}
 
 		// while we still have lines in the chosen files
@@ -153,10 +156,10 @@ public class ExternalMemoryImpl implements IExternalMemory {
 			writer.newLine();
 
 			// advance reader with min value and get next line
-			newLine = this.readers.get(min.index).readLine();
+			line = this.readers.get(min.index).readLine();
 
-			if (newLine != null) {
-				minHeap.add(new Entry(newLine, min.index));
+			if (line != null) {
+				minHeap.add(new Entry(line, min.index));
 			}
 		}
 
@@ -186,7 +189,7 @@ public class ExternalMemoryImpl implements IExternalMemory {
 	@Override
 	public void sort(String in, String out, int colNum, String tmpPath) {
 		// time checking
-		long startTime = System.nanoTime();
+		//long startTime = System.nanoTime();
 
 		try {
 			File file = new File(in);
@@ -195,11 +198,11 @@ public class ExternalMemoryImpl implements IExternalMemory {
 			String tmps = tmpPath + "tmp";
 			this.colNum = colNum;
 
-			this.lineInBytes = reader.readLine().length(); // without \n
+			this.lineInBytes = reader.readLine().length() * 2; // without \n
 
 			// lines can go into M
-			this.readChunks = (int) Math.floor((bytesInBlock * blocksNum) / (this.lineInBytes + 1));
-			long linesNum = ((file.length() - lineInBytes) / (this.lineInBytes + 1)) + 1;
+			this.readChunks = (int) Math.floor((bytesInBlock * blocksNum) / (this.lineInBytes + 2));
+			long linesNum = ((2*file.length() - lineInBytes) / (this.lineInBytes + 2)) + 1;
 
 			reader = new BufferedReader(new FileReader(file));
 			firstStage(reader, tmps, colNum, linesNum);
@@ -221,9 +224,9 @@ public class ExternalMemoryImpl implements IExternalMemory {
 		}
 
 		// time checking
-		long endTime   = System.nanoTime();
-		long totalTime = endTime - startTime;
-		System.out.println(totalTime / 1000000000);
+		//long endTime   = System.nanoTime();
+		//long totalTime = endTime - startTime;
+		//System.out.println(totalTime / 1000000000);
 	}
 
 	@Override
