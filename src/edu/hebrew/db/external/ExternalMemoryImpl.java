@@ -124,7 +124,7 @@ public class ExternalMemoryImpl implements IExternalMemory {
 	}
 
 
-	private void secondStage(String tmpPath, int colNum) throws Exception {
+	private void secondStage(String tmpPath) throws Exception {
 
 		File fout = new File(tmpPath + String.valueOf(counter) + ".txt");
 		FileOutputStream fos = new FileOutputStream(fout);
@@ -195,7 +195,7 @@ public class ExternalMemoryImpl implements IExternalMemory {
 			File file = new File(in);
 			BufferedReader reader = new BufferedReader(new FileReader(file));
 
-			String tmps = tmpPath + "tmp";
+			String tmps = tmpPath + "/tmp";
 			this.colNum = colNum;
 
 			this.lineInBytes = reader.readLine().length() * 2; // without \n
@@ -212,7 +212,7 @@ public class ExternalMemoryImpl implements IExternalMemory {
 			}
 			// Loop until there is tmp files to merge
 			while (this.tmpFiles.size() > 1 || this.secondTmpFiles.size() > 0) {
-				secondStage(tmps, colNum);
+				secondStage(tmps);
 			}
 			new File(tmps + String.valueOf(counter) + ".txt").renameTo(new File(out));
 
