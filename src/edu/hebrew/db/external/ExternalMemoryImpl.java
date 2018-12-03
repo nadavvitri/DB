@@ -189,7 +189,7 @@ public class ExternalMemoryImpl implements IExternalMemory {
 	@Override
 	public void sort(String in, String out, int colNum, String tmpPath) {
 		// time checking
-		//long startTime = System.nanoTime();
+		long startTime = System.nanoTime();
 
 		try {
 			File file = new File(in);
@@ -224,9 +224,9 @@ public class ExternalMemoryImpl implements IExternalMemory {
 		}
 
 		// time checking
-		//long endTime   = System.nanoTime();
-		//long totalTime = endTime - startTime;
-		//System.out.println(totalTime / 1000000000);
+		long endTime   = System.nanoTime();
+		long totalTime = endTime - startTime;
+		System.out.println(totalTime / 1000000000);
 	}
 
 	@Override
